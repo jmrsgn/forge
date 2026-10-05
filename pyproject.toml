@@ -1,0 +1,30 @@
+[project]
+name = "forge"
+version = "0.1.0"
+description = "AI-assisted software engineering toolkit for structured, context-aware, and human-controlled development."
+readme = "README.md"
+authors = [
+    { name = "John Martin Marasigan" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+forge = "forge:main"
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
