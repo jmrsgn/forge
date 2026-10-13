@@ -21,7 +21,7 @@ def test_partial_discovery_preserves_original_idea() -> None:
     assert discovery.original_idea == idea
     assert discovery.identity == ProjectIdentity()
     assert discovery.problem is None
-    assert discovery.users == []
+    assert discovery.target_users == []
     assert discovery.use_cases == []
     assert discovery.functional_requirements == []
     assert discovery.quality_requirements == []

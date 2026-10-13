@@ -131,7 +131,7 @@ class ProjectDiscovery(BaseModel):
     original_idea: NonBlankText = Field(frozen=True)
     identity: ProjectIdentity = Field(default_factory=ProjectIdentity)
     problem: ProjectProblem | None = None
-    users: list[ProjectTargetUser] = Field(default_factory=list)
+    target_users: list[ProjectTargetUser] = Field(default_factory=list)
     use_cases: list[UseCase] = Field(default_factory=list)
     functional_requirements: list[Requirement] = Field(default_factory=list)
     quality_requirements: list[Requirement] = Field(default_factory=list)
