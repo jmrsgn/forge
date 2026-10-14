@@ -385,6 +385,19 @@ Major architectural areas are expected to include:
 
 Implementation details should remain modular so these areas can evolve independently.
 
+### Architectural Pattern
+
+Forge follows a **feature-oriented modular monolith architecture**, applying lightweight Clean Architecture principles where appropriate.
+
+- Organize code by business capability or feature rather than global technical layers.
+- Keep domain models and business rules independent of CLI frameworks, AI providers, and infrastructure implementations.
+- Use dependency inversion for external integrations when it improves testability and reduces coupling.
+- Maintain clear responsibility boundaries between features.
+- Introduce internal layers such as domain, application, and infrastructure only when feature complexity justifies them.
+- Avoid premature abstractions, unnecessary interfaces, and speculative architectural components.
+
+This architecture applies to Forge's internal implementation. Forge must remain capable of analyzing and orchestrating projects that use different architectural patterns.
+
 ---
 
 ## 7. Agent Model

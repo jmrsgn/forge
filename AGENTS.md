@@ -21,6 +21,10 @@ Use existing dependencies and conventions whenever practical. Introduce new depe
 
 ## 3. Architecture Guidelines
 
+Forge follows a **feature-oriented modular monolith architecture** with lightweight Clean Architecture principles.
+
+Organize code by feature, preserve clear dependency boundaries, and keep domain logic independent of external integrations. Use dependency inversion where appropriate, and introduce internal architectural layers only when justified by actual complexity. Do not create unnecessary abstractions or directory structures solely to satisfy an architectural pattern.
+
 Organize feature-specific code within its corresponding feature package.
 
 Example:
