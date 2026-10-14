@@ -1,9 +1,9 @@
 """Validated data structures for an unfinished new project discovery."""
 
 from enum import Enum
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import AfterValidator, BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field, model_validator
 
 
 def _nonblank(value: str) -> str:
@@ -37,12 +37,27 @@ class DiscoveryItem(BaseModel):
     """
     Represents a piece of information collected during project discovery.
 
-    Tracks the information's statement and its source, allowing Forge
-    to distinguish user-provided, clarified, and AI-inferred information.
+    Tracks the information's statement, source, and supporting interaction reference.
+    A valid reference does not establish that the interaction supports the statement.
     """
 
     statement: NonBlankText
     source: InformationSource
+    evidence_ref: NonBlankText | None = None
+
+    @model_validator(mode="after")
+    def validate_evidence_ref(self) -> Self:
+        if self.source is InformationSource.USER and self.evidence_ref != "original_idea":
+            raise ValueError("USER information requires original_idea evidence")
+        if self.source is InformationSource.CLARIFIED and (
+            self.evidence_ref is None
+            or not self.evidence_ref.startswith("clarification:")
+            or not self.evidence_ref.removeprefix("clarification:").strip()
+        ):
+            raise ValueError("CLARIFIED information requires a clarification:<id> reference")
+        if self.source is InformationSource.INFERRED and self.evidence_ref is not None:
+            raise ValueError("INFERRED information cannot have confirming evidence")
+        return self
 
 
 class Requirement(DiscoveryItem):
@@ -62,8 +77,8 @@ class ProjectIdentity(BaseModel):
     because they may not be known during the initial discovery stage.
     """
 
-    name: NonBlankText | None = None
-    summary: NonBlankText | None = None
+    name: DiscoveryItem | None = None
+    summary: DiscoveryItem | None = None
 
 
 class ProjectProblem(BaseModel):
@@ -74,7 +89,7 @@ class ProjectProblem(BaseModel):
     that capture the intended outcomes of the project.
     """
 
-    statement: NonBlankText | None = None
+    statement: DiscoveryItem | None = None
     goals: list[DiscoveryItem] = Field(default_factory=list)
 
 
@@ -86,8 +101,8 @@ class ProjectTargetUser(BaseModel):
     goals they want to accomplish through the proposed system.
     """
 
-    name: NonBlankText
-    description: NonBlankText | None = None
+    name: DiscoveryItem
+    description: DiscoveryItem | None = None
     goals: list[DiscoveryItem] = Field(default_factory=list)
 
 
@@ -99,9 +114,9 @@ class UseCase(BaseModel):
     want to achieve, and the expected outcome of that interaction.
     """
 
-    actor: NonBlankText
-    objective: NonBlankText
-    expected_outcome: NonBlankText
+    actor: DiscoveryItem
+    objective: DiscoveryItem
+    expected_outcome: DiscoveryItem
 
 
 class OpenQuestion(BaseModel):
