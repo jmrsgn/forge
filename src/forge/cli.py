@@ -20,7 +20,9 @@ def _show_version(value: bool) -> None:
 def main(
     version_option: Annotated[
         bool,
-        typer.Option("--version", callback=_show_version, is_eager=True, help="Show Forge version."),
+        typer.Option(
+            "--version", callback=_show_version, is_eager=True, help="Show Forge version."
+        ),
     ] = False,
 ) -> None:
     """Forge software engineering toolkit."""

@@ -133,7 +133,9 @@ def test_populated_discovery_tracks_provenance_and_blocking_questions() -> None:
                 evidence_ref="clarification:constraint-1",
             )
         ],
-        assumptions=[DiscoveryItem(statement="One user per garden", source=InformationSource.INFERRED)],
+        assumptions=[
+            DiscoveryItem(statement="One user per garden", source=InformationSource.INFERRED)
+        ],
         out_of_scope=[
             DiscoveryItem(
                 statement="Seed ordering",
