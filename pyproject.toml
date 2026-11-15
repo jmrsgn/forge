@@ -9,10 +9,11 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2,<3",
+    "typer>=0.29.1",
 ]
 
 [project.scripts]
-forge = "forge:main"
+forge = "forge.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]
