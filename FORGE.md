@@ -396,6 +396,29 @@ Forge follows a **feature-oriented modular monolith architecture**, applying lig
 - Introduce internal layers such as domain, application, and infrastructure only when feature complexity justifies them.
 - Avoid premature abstractions, unnecessary interfaces, and speculative architectural components.
 
+### Internal Code Boundaries
+
+Keep each feature's models, rules, and workflows in its feature package. The root CLI is the
+presentation entry point; it registers commands and handles user input and output. When a command
+needs application behavior, it delegates to a feature workflow rather than implementing domain rules.
+
+| Area | Responsibility | Dependencies |
+| --- | --- | --- |
+| CLI / presentation | Parse commands, present results and errors | Feature application workflows when needed; Typer stays here |
+| Application workflows | Coordinate domain operations and interactions | Feature domain models and rules; integration contracts when needed |
+| Domain models and rules | Represent and validate Forge concepts | Standard library and domain-appropriate validation libraries, independent of CLI and external integrations |
+| Infrastructure | Implement filesystem, repository, provider, or other external integrations | Feature contracts and domain types as needed |
+
+Dependencies point inward: presentation calls application workflows, and workflows use domain
+models and rules. Infrastructure may depend on feature-owned contracts; domain code must not import
+presentation or infrastructure. Add a contract only when a real integration needs one. Avoid
+cross-feature imports that create cycles. Put a concept in a shared module only after more than one
+feature genuinely needs the same behavior or type.
+
+The current `forge.cli` module is the CLI entry point. The `forge.discovery` package keeps its
+models and intake workflow together; intake depends on discovery models, and neither depends on
+Typer. No infrastructure or AI integration is implemented yet.
+
 This architecture applies to Forge's internal implementation. Forge must remain capable of analyzing and orchestrating projects that use different architectural patterns.
 
 ---
