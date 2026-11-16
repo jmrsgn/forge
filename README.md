@@ -65,6 +65,18 @@ Advanced AI-assisted development capabilities are not implemented yet.
 
 ## Development
 
+### AI provider foundation
+
+Workflows can receive an `AIProvider` and call `generate(GenerationRequest(prompt=...))`.
+Construct runtime `ProviderSettings(provider="fake")` for deterministic local use, or
+`ProviderSettings(provider="openai", model="...")` for the OpenAI adapter. Pass the settings to
+`resolve_provider()`. The timeout defaults to 30 seconds and can be set with `timeout_seconds`.
+The OpenAI adapter reads `OPENAI_API_KEY` from the environment when selected. For local development,
+copy `.env.example` to `.env` in the Forge repository and set the key there. An existing operating
+system environment variable takes precedence over `.env`. Both `.env` and `.env.*` are Git-ignored,
+while `.env.example` remains eligible for Git. Provider settings are runtime inputs; the existing
+`.forge/project.yaml` schema is unchanged. No CLI command or workflow uses a live provider yet.
+
 Forge requires Python 3.12 or newer and uses `uv` for project and dependency management.
 
 Install the project dependencies:

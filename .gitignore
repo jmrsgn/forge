@@ -29,3 +29,8 @@ dist/
 
 # macOS
 .DS_Store
+
+# Env
+.env
+.env.*
+!.env.example
