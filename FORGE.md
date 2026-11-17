@@ -417,7 +417,8 @@ feature genuinely needs the same behavior or type.
 
 The current `forge.cli` module is the CLI entry point. The `forge.discovery` package keeps its
 models and intake workflow together; intake depends on discovery models, and neither depends on
-Typer. No infrastructure or AI integration is implemented yet.
+Typer. The initialization workflow uses the configuration and workspace features. The `forge.ai`
+package keeps provider contracts separate from its OpenAI integration.
 
 This architecture applies to Forge's internal implementation. Forge must remain capable of analyzing and orchestrating projects that use different architectural patterns.
 

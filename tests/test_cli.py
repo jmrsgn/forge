@@ -69,16 +69,22 @@ def test_init_brownfield_preserves_files(tmp_path: Path) -> None:
     assert validate_workspace(tmp_path).name == "Existing App"
 
 
-def test_init_rejects_missing_mode_and_invalid_mode(tmp_path: Path) -> None:
+def test_init_rejects_missing_options_and_invalid_mode(tmp_path: Path) -> None:
     missing = runner.invoke(app, ["init", "--name", "App", "--path", str(tmp_path)])
+    missing_name = runner.invoke(app, ["init", "--mode", "greenfield", "--path", str(tmp_path)])
     invalid = runner.invoke(
         app, ["init", "--mode", "invalid", "--name", "App", "--path", str(tmp_path)]
     )
 
     assert missing.exit_code == 2
-    assert "--mode" in missing.output
+    assert missing.stdout == ""
+    assert "--mode" in missing.stderr
+    assert missing_name.exit_code == 2
+    assert missing_name.stdout == ""
+    assert "--name" in missing_name.stderr
     assert invalid.exit_code == 2
-    assert "invalid" in invalid.output
+    assert invalid.stdout == ""
+    assert "invalid" in invalid.stderr
     assert not (tmp_path / ".forge").exists()
 
 
@@ -88,8 +94,22 @@ def test_init_reports_workflow_error(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 1
-    assert "Project name must be a nonblank string" in result.output
+    assert result.stdout == ""
+    assert "Project name must be a nonblank string" in result.stderr
     assert not (tmp_path / ".forge").exists()
+
+
+def test_init_reports_invalid_path_on_stderr(tmp_path: Path) -> None:
+    missing_path = tmp_path / "missing"
+    result = runner.invoke(
+        app,
+        ["init", "--mode", "brownfield", "--name", "App", "--path", str(missing_path)],
+    )
+
+    assert result.exit_code == 1
+    assert result.stdout == ""
+    assert "Project directory does not exist" in result.stderr
+    assert not missing_path.exists()
 
 
 def test_console_script_targets_cli_app() -> None:
