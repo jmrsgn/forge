@@ -3,7 +3,15 @@
 from enum import Enum
 from typing import Annotated, Self
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StrictBool, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    model_validator,
+)
 
 
 def _nonblank(value: str) -> str:
@@ -122,16 +130,44 @@ class UseCase(BaseModel):
     expected_outcome: DiscoveryItem
 
 
+class QuestionStatus(str, Enum):
+    UNRESOLVED = "unresolved"
+    DEFERRED = "deferred"
+    RESOLVED = "resolved"
+
+
 class OpenQuestion(BaseModel):
     """
-    Represents an unresolved question identified during discovery.
+    Represents a question identified during discovery.
 
     The blocking flag indicates whether the question must be resolved
-    before Forge can consider the discovery ready for approval.
+    before Forge can consider the discovery ready for approval. Once asked,
+    its id links any verbatim answer to the clarification interaction.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     question: NonBlankText
     blocking: StrictBool = False
+    id: NonBlankText | None = None
+    status: QuestionStatus = QuestionStatus.UNRESOLVED
+    answer: DiscoveryItem | None = None
+
+    @model_validator(mode="after")
+    def validate_resolution(self) -> Self:
+        if self.status is QuestionStatus.RESOLVED:
+            if self.id is None or self.answer is None:
+                raise ValueError("Resolved questions require an id and answer")
+            if (
+                self.answer.source is not InformationSource.CLARIFIED
+                or self.answer.evidence_ref != f"clarification:{self.id}"
+            ):
+                raise ValueError("Question answers require matching CLARIFIED evidence")
+        elif self.status is QuestionStatus.DEFERRED and self.id is None:
+            raise ValueError("Deferred questions require an id")
+        elif self.answer is not None:
+            raise ValueError("Only resolved questions may contain an answer")
+        return self
 
 
 class ProjectDiscovery(BaseModel):
@@ -157,3 +193,11 @@ class ProjectDiscovery(BaseModel):
     assumptions: list[DiscoveryItem] = Field(default_factory=list)
     out_of_scope: list[DiscoveryItem] = Field(default_factory=list)
     open_questions: list[OpenQuestion] = Field(default_factory=list)
+    clarification_rounds: StrictInt = Field(default=0, ge=0)
+
+    @model_validator(mode="after")
+    def unique_question_ids(self) -> Self:
+        ids = [question.id for question in self.open_questions if question.id is not None]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Question ids must be unique")
+        return self

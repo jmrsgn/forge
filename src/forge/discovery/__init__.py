@@ -8,6 +8,7 @@ from forge.discovery.models import (
     ProjectIdentity,
     ProjectProblem,
     ProjectTargetUser,
+    QuestionStatus,
     Requirement,
     UseCase,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "ProjectIdentity",
     "ProjectProblem",
     "ProjectTargetUser",
+    "QuestionStatus",
     "Requirement",
     "UseCase",
 ]
