@@ -3,7 +3,7 @@
 from enum import Enum
 from typing import Annotated, Self
 
-from pydantic import AfterValidator, BaseModel, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StrictBool, model_validator
 
 
 def _nonblank(value: str) -> str:
@@ -39,7 +39,10 @@ class DiscoveryItem(BaseModel):
 
     Tracks the information's statement, source, and supporting interaction reference.
     A valid reference does not establish that the interaction supports the statement.
+    Corrected claims must be represented by a new validated item.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     statement: NonBlankText
     source: InformationSource
@@ -128,7 +131,7 @@ class OpenQuestion(BaseModel):
     """
 
     question: NonBlankText
-    blocking: bool = False
+    blocking: StrictBool = False
 
 
 class ProjectDiscovery(BaseModel):

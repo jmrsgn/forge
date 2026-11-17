@@ -197,6 +197,13 @@ def test_invalid_information_source_is_rejected() -> None:
         DiscoveryItem(statement="Save planting dates", source="unknown")
 
 
+def test_invalid_claim_and_question_field_types_are_rejected() -> None:
+    with pytest.raises(ValidationError):
+        DiscoveryItem(statement=42, source=InformationSource.INFERRED)
+    with pytest.raises(ValidationError):
+        OpenQuestion(question="Which platform?", blocking="yes")
+
+
 @pytest.mark.parametrize(
     ("source", "evidence_ref"),
     [
@@ -213,6 +220,18 @@ def test_valid_evidence_references(source: InformationSource, evidence_ref: str 
     assert item.statement == statement
     assert item.source is source
     assert item.evidence_ref == evidence_ref
+
+
+def test_provenance_cannot_be_changed_after_validation() -> None:
+    item = DiscoveryItem(statement="Candidate requirement", source=InformationSource.INFERRED)
+
+    with pytest.raises(ValidationError, match="frozen"):
+        item.source = InformationSource.USER
+    with pytest.raises(ValidationError, match="frozen"):
+        item.evidence_ref = "original_idea"
+
+    assert item.source is InformationSource.INFERRED
+    assert item.evidence_ref is None
 
 
 @pytest.mark.parametrize(
