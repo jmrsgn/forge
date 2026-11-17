@@ -146,7 +146,7 @@ class ProjectDiscovery(BaseModel):
     progressively collected and refined through clarification.
     """
 
-    original_idea: NonBlankText = Field(frozen=True)
+    original_idea: NonBlankText = Field(frozen=True, strict=True)
     identity: ProjectIdentity = Field(default_factory=ProjectIdentity)
     problem: ProjectProblem | None = None
     target_users: list[ProjectTargetUser] = Field(default_factory=list)

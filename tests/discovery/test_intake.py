@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from forge.discovery.intake import intake_idea
-from forge.discovery.models import ProjectDiscovery, ProjectIdentity
+from forge.discovery.models import OpenQuestion, ProjectDiscovery, ProjectIdentity
 
 
 def test_intake_preserves_original_idea_and_discovery_defaults() -> None:
@@ -27,8 +27,8 @@ def test_intake_preserves_original_idea_and_discovery_defaults() -> None:
     assert discovery.open_questions == []
 
 
-def test_intake_preserves_surrounding_whitespace() -> None:
-    idea = "  Build a fitness application.\n"
+def test_intake_preserves_multiline_unicode_and_whitespace() -> None:
+    idea = "  Build a Café app!\nCoaches track 💪 progress—daily.\n\t"
 
     assert intake_idea(idea).original_idea == idea
 
@@ -37,3 +37,20 @@ def test_intake_preserves_surrounding_whitespace() -> None:
 def test_intake_rejects_blank_idea(idea: str) -> None:
     with pytest.raises(ValidationError, match="original_idea"):
         intake_idea(idea)
+
+
+@pytest.mark.parametrize("idea", [None, 42, b"Build an app", ["Build an app"]])
+def test_intake_rejects_non_text_input(idea: object) -> None:
+    with pytest.raises(ValidationError, match="original_idea"):
+        intake_idea(idea)
+
+
+def test_intake_records_are_independent() -> None:
+    first = intake_idea("First idea")
+    second = intake_idea("Second idea")
+
+    first.open_questions.append(OpenQuestion(question="Which platform?"))
+
+    assert second.original_idea == "Second idea"
+    assert second.open_questions == []
+    assert first.identity is not second.identity
