@@ -1,0 +1,181 @@
+"""AI-assisted extraction of unconfirmed requirements from an original idea."""
+
+import json
+
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+
+from forge.ai.contracts import (
+    AIProvider,
+    GenerationRequest,
+    GenerationResponse,
+    ProviderAuthenticationError,
+    ProviderConfigurationError,
+    ProviderError,
+    ProviderExecutionError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+)
+from forge.discovery.models import (
+    DiscoveryItem,
+    InformationSource,
+    NonBlankText,
+    OpenQuestion,
+    ProjectDiscovery,
+    ProjectProblem,
+    ProjectTargetUser,
+    Requirement,
+    UseCase,
+)
+
+
+class RequirementsAnalysisError(ValueError):
+    """The provider returned unusable requirements analysis."""
+
+
+class _TargetUserCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    name: NonBlankText
+    description: NonBlankText | None = None
+    goals: list[NonBlankText] = Field(default_factory=list)
+
+
+class _UseCaseCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    actor: NonBlankText
+    objective: NonBlankText
+    expected_outcome: NonBlankText
+
+
+class _AnalysisResponse(BaseModel):
+    """Untrusted provider text, without provenance or approval fields."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    project_name: NonBlankText | None = None
+    project_summary: NonBlankText | None = None
+    problem_statement: NonBlankText | None = None
+    goals: list[NonBlankText]
+    target_users: list[_TargetUserCandidate]
+    use_cases: list[_UseCaseCandidate]
+    functional_requirements: list[NonBlankText]
+    quality_requirements: list[NonBlankText]
+    constraints: list[NonBlankText]
+    assumptions: list[NonBlankText]
+    out_of_scope: list[NonBlankText]
+    open_questions: list[NonBlankText]
+
+
+def _prompt(original_idea: str) -> str:
+    return (
+        "Analyze the developer's new project idea. Extract only information supported by the "
+        "idea. Treat interpretations as candidates and put uncertain claims in assumptions or "
+        "open_questions. Do not invent technologies, architecture, or detailed business rules. "
+        "Return only a JSON object, without Markdown, with these fields:\n"
+        '{"project_name": null, "project_summary": null, "problem_statement": null, '
+        '"goals": [], "target_users": [{"name": "...", "description": null, "goals": []}], '
+        '"use_cases": [{"actor": "...", "objective": "...", "expected_outcome": "..."}], '
+        '"functional_requirements": [], "quality_requirements": [], "constraints": [], '
+        '"assumptions": [], "out_of_scope": [], "open_questions": []}\n'
+        "Every list field is required; use [] when unknown. Use null for unknown scalar fields. "
+        "Do not include source, evidence_ref, or approval fields. Only include use cases when "
+        "actor, objective, and expected outcome are known; otherwise ask a question.\n"
+        f"Original idea (verbatim):\n{original_idea}"
+    )
+
+
+def _parse_response(response: GenerationResponse) -> _AnalysisResponse:
+    try:
+        data = json.loads(response.text)
+    except (TypeError, ValueError):
+        raise RequirementsAnalysisError("Provider returned malformed analysis JSON") from None
+    try:
+        analysis = _AnalysisResponse.model_validate(data)
+    except ValidationError as exc:
+        missing = sorted(
+            str(error["loc"][0])
+            for error in exc.errors(include_input=False, include_context=False)
+            if error["type"] == "missing" and len(error["loc"]) == 1
+        )
+        if missing:
+            raise RequirementsAnalysisError(
+                f"Provider analysis omitted required sections: {', '.join(missing)}"
+            ) from None
+        raise RequirementsAnalysisError("Provider returned an invalid analysis structure") from None
+    if not any(analysis.model_dump().values()):
+        raise RequirementsAnalysisError("Provider analysis contained no findings or questions")
+    return analysis
+
+
+def _inferred(statement: str) -> DiscoveryItem:
+    return DiscoveryItem(statement=statement, source=InformationSource.INFERRED)
+
+
+def analyze_requirements(discovery: ProjectDiscovery, provider: AIProvider) -> ProjectDiscovery:
+    """Return a separate discovery with validated, unconfirmed AI candidates."""
+    request = GenerationRequest(prompt=_prompt(discovery.original_idea))
+    try:
+        response = provider.generate(request)
+    except ProviderError as exc:
+        error_type = type(exc)
+        if error_type not in (
+            ProviderAuthenticationError,
+            ProviderConfigurationError,
+            ProviderTimeoutError,
+            ProviderRateLimitError,
+            ProviderExecutionError,
+        ):
+            error_type = ProviderExecutionError
+        raise error_type("AI provider failed during requirements analysis") from None
+    except Exception:  # noqa: BLE001 - injected providers can raise sensitive errors
+        raise ProviderExecutionError("AI provider failed during requirements analysis") from None
+
+    if not isinstance(response, GenerationResponse):
+        raise RequirementsAnalysisError("Provider returned an invalid generation response")
+    analysis = _parse_response(response)
+
+    updated = discovery.model_copy(deep=True)
+    if updated.identity.name is None and analysis.project_name is not None:
+        updated.identity.name = _inferred(analysis.project_name)
+    if updated.identity.summary is None and analysis.project_summary is not None:
+        updated.identity.summary = _inferred(analysis.project_summary)
+
+    if analysis.problem_statement is not None or analysis.goals:
+        if updated.problem is None:
+            updated.problem = ProjectProblem()
+        if updated.problem.statement is None and analysis.problem_statement is not None:
+            updated.problem.statement = _inferred(analysis.problem_statement)
+        updated.problem.goals.extend(_inferred(goal) for goal in analysis.goals)
+
+    updated.target_users.extend(
+        ProjectTargetUser(
+            name=_inferred(user.name),
+            description=_inferred(user.description) if user.description is not None else None,
+            goals=[_inferred(goal) for goal in user.goals],
+        )
+        for user in analysis.target_users
+    )
+    updated.use_cases.extend(
+        UseCase(
+            actor=_inferred(use_case.actor),
+            objective=_inferred(use_case.objective),
+            expected_outcome=_inferred(use_case.expected_outcome),
+        )
+        for use_case in analysis.use_cases
+    )
+    updated.functional_requirements.extend(
+        Requirement(statement=statement, source=InformationSource.INFERRED)
+        for statement in analysis.functional_requirements
+    )
+    updated.quality_requirements.extend(
+        Requirement(statement=statement, source=InformationSource.INFERRED)
+        for statement in analysis.quality_requirements
+    )
+    updated.constraints.extend(_inferred(statement) for statement in analysis.constraints)
+    updated.assumptions.extend(_inferred(statement) for statement in analysis.assumptions)
+    updated.out_of_scope.extend(_inferred(statement) for statement in analysis.out_of_scope)
+    updated.open_questions.extend(
+        OpenQuestion(question=question) for question in analysis.open_questions
+    )
+    return updated
