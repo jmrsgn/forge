@@ -58,6 +58,7 @@ class DiscoveryItem(BaseModel):
 
     @model_validator(mode="after")
     def validate_evidence_ref(self) -> Self:
+        """Enforce the evidence-reference rule for this item's source."""
         if self.source is InformationSource.USER and self.evidence_ref != "original_idea":
             raise ValueError("USER information requires original_idea evidence")
         if self.source is InformationSource.CLARIFIED and (
@@ -131,6 +132,8 @@ class UseCase(BaseModel):
 
 
 class QuestionStatus(str, Enum):
+    """The resolution state of a discovery clarification question."""
+
     UNRESOLVED = "unresolved"
     DEFERRED = "deferred"
     RESOLVED = "resolved"
@@ -155,6 +158,7 @@ class OpenQuestion(BaseModel):
 
     @model_validator(mode="after")
     def validate_resolution(self) -> Self:
+        """Require a matching clarified answer for resolved questions."""
         if self.status is QuestionStatus.RESOLVED:
             if self.id is None or self.answer is None:
                 raise ValueError("Resolved questions require an id and answer")
@@ -197,6 +201,7 @@ class ProjectDiscovery(BaseModel):
 
     @model_validator(mode="after")
     def unique_question_ids(self) -> Self:
+        """Reject duplicate assigned question IDs within one discovery."""
         ids = [question.id for question in self.open_questions if question.id is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("Question ids must be unique")

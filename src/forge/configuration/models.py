@@ -18,6 +18,7 @@ class ProjectConfig(BaseModel):
     @field_validator("schema_version")
     @classmethod
     def supported_schema_version(cls, value: int) -> int:
+        """Reject configuration versions this Forge release cannot read."""
         if value != CURRENT_SCHEMA_VERSION:
             raise ValueError(f"Unsupported schema version; expected {CURRENT_SCHEMA_VERSION}")
         return value
@@ -25,6 +26,7 @@ class ProjectConfig(BaseModel):
     @field_validator("name")
     @classmethod
     def nonblank_name(cls, value: str) -> str:
+        """Require a project name without changing its whitespace."""
         if not value.strip():
             raise ValueError("Project name must not be blank")
         return value

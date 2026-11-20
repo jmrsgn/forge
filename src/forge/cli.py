@@ -14,6 +14,7 @@ app = typer.Typer(
 
 
 def _show_version(value: bool) -> None:
+    """Print the installed Forge version when the option is selected."""
     if value:
         typer.echo(f"forge {version('forge')}")
         raise typer.Exit()

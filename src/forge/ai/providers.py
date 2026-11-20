@@ -25,9 +25,11 @@ class FakeProvider:
     """Deterministic local provider for tests and offline workflows."""
 
     def __init__(self, response_text: str = "Fake response") -> None:
+        """Validate and store the fixed response text."""
         self._response = GenerationResponse(text=response_text)
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
+        """Return the fixed response without a network request."""
         return self._response
 
 
@@ -35,11 +37,13 @@ class OpenAIProvider:
     """Minimal text-only adapter for the OpenAI Responses API."""
 
     def __init__(self, *, model: str, api_key: str, timeout_seconds: float) -> None:
+        """Keep runtime settings for later generation requests."""
         self._model = model
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
 
     def generate(self, request: GenerationRequest) -> GenerationResponse:
+        """Send a text request and return the provider's validated output."""
         body = json.dumps({"model": self._model, "input": request.prompt, "store": False}).encode(
             "utf-8"
         )

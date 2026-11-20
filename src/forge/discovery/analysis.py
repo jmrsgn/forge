@@ -33,6 +33,8 @@ class RequirementsAnalysisError(ValueError):
 
 
 class _TargetUserCandidate(BaseModel):
+    """Untrusted target-user fields before provenance is assigned."""
+
     model_config = ConfigDict(extra="forbid", strict=True)
 
     name: NonBlankText
@@ -41,6 +43,8 @@ class _TargetUserCandidate(BaseModel):
 
 
 class _UseCaseCandidate(BaseModel):
+    """Untrusted use-case fields before provenance is assigned."""
+
     model_config = ConfigDict(extra="forbid", strict=True)
 
     actor: NonBlankText
@@ -68,6 +72,7 @@ class _AnalysisResponse(BaseModel):
 
 
 def _prompt(original_idea: str) -> str:
+    """Ask for the required JSON sections using the untouched original idea."""
     return (
         "Analyze the developer's new project idea. Extract only information supported by the "
         "idea. Treat interpretations as candidates and put uncertain claims in assumptions or "
@@ -86,6 +91,7 @@ def _prompt(original_idea: str) -> str:
 
 
 def _parse_response(response: GenerationResponse) -> _AnalysisResponse:
+    """Validate provider JSON without exposing its contents in errors."""
     try:
         data = json.loads(response.text)
     except (TypeError, ValueError):
@@ -109,6 +115,7 @@ def _parse_response(response: GenerationResponse) -> _AnalysisResponse:
 
 
 def _inferred(statement: str) -> DiscoveryItem:
+    """Wrap one AI-produced statement as an unconfirmed discovery item."""
     return DiscoveryItem(statement=statement, source=InformationSource.INFERRED)
 
 

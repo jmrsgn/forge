@@ -6,6 +6,7 @@ from pydantic import AfterValidator, BaseModel
 
 
 def _nonblank(value: str) -> str:
+    """Reject blank text while preserving the supplied wording."""
     if not value.strip():
         raise ValueError("Text must not be blank")
     return value
@@ -15,15 +16,23 @@ NonBlankText = Annotated[str, AfterValidator(_nonblank)]
 
 
 class GenerationRequest(BaseModel):
+    """A validated text prompt sent to an AI provider."""
+
     prompt: NonBlankText
 
 
 class GenerationResponse(BaseModel):
+    """Validated text returned by an AI provider."""
+
     text: NonBlankText
 
 
 class AIProvider(Protocol):
-    def generate(self, request: GenerationRequest) -> GenerationResponse: ...
+    """The provider-independent contract for text generation."""
+
+    def generate(self, request: GenerationRequest) -> GenerationResponse:
+        """Generate a text response for one request."""
+        ...
 
 
 class ProviderError(Exception):

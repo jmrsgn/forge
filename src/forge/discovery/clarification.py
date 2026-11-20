@@ -42,6 +42,7 @@ class ClarificationAnswer(BaseModel):
 
     @model_validator(mode="after")
     def confirmation_requires_answer(self) -> Self:
+        """Reject a confirmed claim when the developer deferred the question."""
         if self.confirmed_claim and self.answer is None:
             raise ValueError("A confirmed claim requires an answer")
         return self
@@ -49,20 +50,25 @@ class ClarificationAnswer(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class ClarificationRound:
+    """The selected questions, updated discovery copy, and round-limit signal."""
+
     discovery: ProjectDiscovery
     questions: tuple[OpenQuestion, ...]
     limit_reached: bool = False
 
 
 def _key(text: str) -> str:
+    """Normalize text for comparison without changing the stored wording."""
     return " ".join(text.casefold().split())
 
 
 def _question_id(text: str) -> str:
+    """Derive a stable ID from normalized question text."""
     return f"q-{sha256(_key(text).encode('utf-8')).hexdigest()[:16]}"
 
 
 def _trusted_statements(discovery: ProjectDiscovery) -> set[str]:
+    """Find established claims so their inferred duplicates are not reasked."""
     items = [
         *discovery.functional_requirements,
         *discovery.quality_requirements,
@@ -81,7 +87,16 @@ def _trusted_statements(discovery: ProjectDiscovery) -> set[str]:
 def select_clarification_round(
     discovery: ProjectDiscovery, *, max_questions: int = 3, max_rounds: int = 3
 ) -> ClarificationRound:
-    """Select new questions, preferring scope blockers and existing open questions."""
+    """Choose the next small set of questions without changing ``discovery``.
+
+    Build candidates from missing information, scope conflicts, existing open
+    questions, and inferred claims. Prioritize blockers, then skip duplicates
+    and questions already asked, answered, or deferred. Return a discovery copy
+    with IDs for the selected questions and an incremented round count.
+
+    Once ``max_rounds`` is reached, return no questions with
+    ``limit_reached=True``; this does not mean all questions are resolved.
+    """
     if type(max_questions) is not int or max_questions < 1:
         raise ClarificationError("max_questions must be a positive integer")
     if type(max_rounds) is not int or max_rounds < 1:
@@ -95,6 +110,7 @@ def select_clarification_round(
     candidates: list[tuple[int, str, bool, int | None]] = []
 
     def add(priority: int, text: str, blocking: bool, index: int | None = None) -> None:
+        """Stage a question candidate with its priority and existing index."""
         candidates.append((priority, text, blocking, index))
 
     if not updated.target_users:
@@ -196,7 +212,15 @@ def select_clarification_round(
 def record_developer_answers(
     discovery: ProjectDiscovery, answers: Sequence[ClarificationAnswer]
 ) -> ProjectDiscovery:
-    """Record explicit developer text without interpreting or promoting other claims."""
+    """Apply developer answers to a copy of ``discovery``.
+
+    Require each question ID to exist and still be unresolved. Store answer
+    text verbatim as ``CLARIFIED`` with a matching clarification evidence ref;
+    an explicit ``answer=None`` defers the question. A trusted caller may set
+    ``confirmed_claim=True`` to fill an empty core field for one of the three
+    built-in questions. Existing claims are never overwritten, and invalid
+    submissions leave the input discovery unchanged.
+    """
     updated = ProjectDiscovery.model_validate(discovery.model_dump())
     by_id = {
         question.id: index

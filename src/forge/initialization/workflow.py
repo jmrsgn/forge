@@ -9,6 +9,8 @@ from forge.workspace import WorkspaceError, create_workspace
 
 
 class InitializationMode(str, Enum):
+    """Whether initialization targets an empty or existing project."""
+
     GREENFIELD = "greenfield"
     BROWNFIELD = "brownfield"
 
@@ -19,6 +21,8 @@ class InitializationError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class InitializationResult:
+    """The mode, paths, and configuration produced by initialization."""
+
     mode: InitializationMode
     project_dir: Path
     workspace_dir: Path
