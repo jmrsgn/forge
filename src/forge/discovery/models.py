@@ -195,6 +195,7 @@ class ProjectDiscovery(BaseModel):
     quality_requirements: list[Requirement] = Field(default_factory=list)
     constraints: list[DiscoveryItem] = Field(default_factory=list)
     assumptions: list[DiscoveryItem] = Field(default_factory=list)
+    in_scope: list[DiscoveryItem] = Field(default_factory=list)
     out_of_scope: list[DiscoveryItem] = Field(default_factory=list)
     open_questions: list[OpenQuestion] = Field(default_factory=list)
     clarification_rounds: StrictInt = Field(default=0, ge=0)
