@@ -190,7 +190,7 @@ def _issues(discovery: ProjectDiscovery, ids: dict[str, str]) -> list[Specificat
         (not discovery.use_cases, "Use cases are missing."),
         (not discovery.functional_requirements, "Functional requirements are missing."),
     )
-    
+
     for absent, statement in missing:
         if absent:
             add("gap", statement, [])
