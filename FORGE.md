@@ -520,6 +520,7 @@ A Forge-enabled repository may eventually contain a structure similar to:
 ```text
 .forge/
 ├── project.yaml
+├── discovery.json
 ├── agents/
 ├── skills/
 ├── rules/
@@ -552,6 +553,14 @@ Possible responsibilities:
 
 Project-level Forge configuration.
 
+### `discovery.json`
+
+Created only when a discovery session is explicitly started. This Forge-owned, schema-versioned
+JSON file stores the canonical `ProjectDiscovery`, its derived specification revision for integrity
+checking, a save generation, and review decisions in numbered recording order. The specification
+and Markdown are regenerated from discovery when needed. Creation never replaces an existing file;
+updates use atomic replacement and reject stale generations or discarded review decisions.
+
 ### Workspace ownership
 
 Forge may create `.forge/project.yaml` and the `agents/`, `skills/`, `rules/`, and `knowledge/`
@@ -561,7 +570,7 @@ eligible for replacement. Future changes to existing workspace content require e
 and approval rules; creation does not reset or repair an existing workspace.
 
 The knowledge documents shown above are future outputs, not placeholders created with the initial
-workspace.
+workspace. The initial workspace does not contain `discovery.json` either.
 
 ### `agents/`
 

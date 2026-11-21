@@ -1,6 +1,7 @@
 """Domain models for new project discovery."""
 
 from forge.discovery.models import (
+    ClarificationRoundRecord,
     DiscoveryItem,
     InformationSource,
     OpenQuestion,
@@ -14,6 +15,7 @@ from forge.discovery.models import (
 )
 
 __all__ = [
+    "ClarificationRoundRecord",
     "DiscoveryItem",
     "InformationSource",
     "OpenQuestion",

@@ -50,7 +50,7 @@ class DiscoveryItem(BaseModel):
     Corrected claims must be represented by a new validated item.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     statement: NonBlankText
     source: InformationSource
@@ -89,6 +89,8 @@ class ProjectIdentity(BaseModel):
     because they may not be known during the initial discovery stage.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     name: DiscoveryItem | None = None
     summary: DiscoveryItem | None = None
 
@@ -100,6 +102,8 @@ class ProjectProblem(BaseModel):
     Contains an optional problem statement and a collection of goals
     that capture the intended outcomes of the project.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     statement: DiscoveryItem | None = None
     goals: list[DiscoveryItem] = Field(default_factory=list)
@@ -113,6 +117,8 @@ class ProjectTargetUser(BaseModel):
     goals they want to accomplish through the proposed system.
     """
 
+    model_config = ConfigDict(extra="forbid")
+
     name: DiscoveryItem
     description: DiscoveryItem | None = None
     goals: list[DiscoveryItem] = Field(default_factory=list)
@@ -125,6 +131,8 @@ class UseCase(BaseModel):
     Defines the actor performing the interaction, the objective they
     want to achieve, and the expected outcome of that interaction.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     actor: DiscoveryItem
     objective: DiscoveryItem
@@ -148,7 +156,7 @@ class OpenQuestion(BaseModel):
     its id links any verbatim answer to the clarification interaction.
     """
 
-    model_config = ConfigDict(frozen=True)
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     question: NonBlankText
     blocking: StrictBool = False
@@ -174,6 +182,22 @@ class OpenQuestion(BaseModel):
         return self
 
 
+class ClarificationRoundRecord(BaseModel):
+    """Question IDs selected during one numbered clarification round."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
+
+    round_number: StrictInt = Field(ge=1)
+    question_ids: list[NonBlankText] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def unique_question_ids(self) -> Self:
+        """Keep a round's selected questions unambiguous."""
+        if len(self.question_ids) != len(set(self.question_ids)):
+            raise ValueError("Clarification round question ids must be unique")
+        return self
+
+
 class ProjectDiscovery(BaseModel):
     """
     Represents the evolving discovery state of a new software project.
@@ -185,6 +209,8 @@ class ProjectDiscovery(BaseModel):
     Supports incomplete discovery sessions so information can be
     progressively collected and refined through clarification.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     original_idea: NonBlankText = Field(frozen=True, strict=True)
     identity: ProjectIdentity = Field(default_factory=ProjectIdentity)
@@ -199,11 +225,17 @@ class ProjectDiscovery(BaseModel):
     out_of_scope: list[DiscoveryItem] = Field(default_factory=list)
     open_questions: list[OpenQuestion] = Field(default_factory=list)
     clarification_rounds: StrictInt = Field(default=0, ge=0)
+    clarification_history: list[ClarificationRoundRecord] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def unique_question_ids(self) -> Self:
-        """Reject duplicate assigned question IDs within one discovery."""
+        """Reject ambiguous question IDs and out-of-order round records."""
         ids = [question.id for question in self.open_questions if question.id is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("Question ids must be unique")
+        rounds = [round_record.round_number for round_record in self.clarification_history]
+        if rounds != sorted(set(rounds)) or any(
+            number > self.clarification_rounds for number in rounds
+        ):
+            raise ValueError("Clarification history must have unique, ordered round numbers")
         return self

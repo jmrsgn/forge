@@ -8,6 +8,7 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict, StrictBool, model_validator
 
 from forge.discovery.models import (
+    ClarificationRoundRecord,
     DiscoveryItem,
     InformationSource,
     NonBlankText,
@@ -206,6 +207,12 @@ def select_clarification_round(
 
     if selected:
         updated.clarification_rounds += 1
+        updated.clarification_history.append(
+            ClarificationRoundRecord(
+                round_number=updated.clarification_rounds,
+                question_ids=[question.id for question in selected],
+            )
+        )
     return ClarificationRound(discovery=updated, questions=tuple(selected))
 
 

@@ -38,7 +38,10 @@ def specification_revision(specification: DiscoverySpecification) -> str:
     """Fingerprint all validated structured content, including provenance and issues."""
     validated = DiscoverySpecification.model_validate(specification.model_dump())
     canonical = json.dumps(
-        validated.model_dump(mode="json", exclude={"discovery": {"clarification_rounds"}}),
+        validated.model_dump(
+            mode="json",
+            exclude={"discovery": {"clarification_rounds", "clarification_history"}},
+        ),
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=False,
