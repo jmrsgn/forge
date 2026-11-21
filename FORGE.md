@@ -561,6 +561,10 @@ checking, a save generation, and review decisions in numbered recording order. T
 and Markdown are regenerated from discovery when needed. Creation never replaces an existing file;
 updates use atomic replacement and reject stale generations or discarded review decisions.
 
+V0.2 discovery assumes a trusted local caller and one writer at a time. It does not authenticate
+review decisions or lock the file across processes. Earlier discovery records that stored only a
+clarification round count cannot reconstruct which questions were selected in those rounds.
+
 ### Workspace ownership
 
 Forge may create `.forge/project.yaml` and the `agents/`, `skills/`, `rules/`, and `knowledge/`
