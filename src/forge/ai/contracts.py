@@ -1,18 +1,10 @@
 """Provider-independent text generation contracts."""
 
-from typing import Annotated, Protocol
+from typing import Protocol
 
-from pydantic import AfterValidator, BaseModel
+from pydantic import BaseModel
 
-
-def _nonblank(value: str) -> str:
-    """Reject blank text while preserving the supplied wording."""
-    if not value.strip():
-        raise ValueError("Text must not be blank")
-    return value
-
-
-NonBlankText = Annotated[str, AfterValidator(_nonblank)]
+from forge.utils.text_utils import NonBlankText
 
 
 class GenerationRequest(BaseModel):

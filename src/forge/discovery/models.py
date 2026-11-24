@@ -1,10 +1,9 @@
 """Validated data structures for an unfinished new project discovery."""
 
 from enum import Enum
-from typing import Annotated, Self
+from typing import Self
 
 from pydantic import (
-    AfterValidator,
     BaseModel,
     ConfigDict,
     Field,
@@ -13,20 +12,9 @@ from pydantic import (
     model_validator,
 )
 
-
-def _nonblank(value: str) -> str:
-    """Validate that a string contains at least one non-whitespace character."""
-    if value.strip():
-        return value
-
-    raise ValueError("Text must not be blank")
+from forge.utils.text_utils import NonBlankText
 
 
-# Define a type for non-blank text using Pydantic's Annotated type with a custom validator.
-NonBlankText = Annotated[str, AfterValidator(_nonblank)]
-
-
-# Define an enumeration for the source of information in the discovery process.
 class InformationSource(str, Enum):
     """
     Identifies the origin of information collected during project discovery.
@@ -69,6 +57,7 @@ class DiscoveryItem(BaseModel):
             raise ValueError("CLARIFIED information requires a clarification:<id> reference")
         if self.source is InformationSource.INFERRED and self.evidence_ref is not None:
             raise ValueError("INFERRED information cannot have confirming evidence")
+        
         return self
 
 
@@ -179,6 +168,7 @@ class OpenQuestion(BaseModel):
             raise ValueError("Deferred questions require an id")
         elif self.answer is not None:
             raise ValueError("Only resolved questions may contain an answer")
+        
         return self
 
 
@@ -195,6 +185,7 @@ class ClarificationRoundRecord(BaseModel):
         """Keep a round's selected questions unambiguous."""
         if len(self.question_ids) != len(set(self.question_ids)):
             raise ValueError("Clarification round question ids must be unique")
+        
         return self
 
 
@@ -228,14 +219,16 @@ class ProjectDiscovery(BaseModel):
     clarification_history: list[ClarificationRoundRecord] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def unique_question_ids(self) -> Self:
+    def validate_unique_question_ids(self) -> Self:
         """Reject ambiguous question IDs and out-of-order round records."""
         ids = [question.id for question in self.open_questions if question.id is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("Question ids must be unique")
+        
         rounds = [round_record.round_number for round_record in self.clarification_history]
         if rounds != sorted(set(rounds)) or any(
             number > self.clarification_rounds for number in rounds
         ):
             raise ValueError("Clarification history must have unique, ordered round numbers")
+        
         return self
