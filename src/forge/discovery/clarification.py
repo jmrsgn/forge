@@ -289,41 +289,55 @@ def record_developer_answers(
     built-in questions. Existing claims are never overwritten, and invalid
     submissions leave the input discovery unchanged.
     """
-    updated = ProjectDiscovery.model_validate(discovery.model_dump())
-    by_id = {
+
+    updated_discovery = ProjectDiscovery.model_validate(discovery.model_dump())
+
+    question_index_by_id = {
         question.id: index
-        for index, question in enumerate(updated.open_questions)
+        for index, question in enumerate(updated_discovery.open_questions)
         if question.id is not None
     }
-    seen: set[str] = set()
-    replacements: dict[int, OpenQuestion] = {}
-    confirmed_indices: set[int] = set()
-    for submission in answers:
-        if not isinstance(submission, ClarificationAnswer):
+
+    seen_question_ids: set[str] = set()
+    question_replacements: dict[int, OpenQuestion] = {}
+    confirmed_question_indexes: set[int] = set()
+
+    for answer in answers:
+        if not isinstance(answer, ClarificationAnswer):
             raise ClarificationError("Answers must be ClarificationAnswer values")
-        if submission.question_id in seen:
+
+        if answer.question_id in seen_question_ids:
             raise ClarificationError("Duplicate answer for a clarification question")
-        seen.add(submission.question_id)
-        index = by_id.get(submission.question_id)
-        if index is None:
+
+        seen_question_ids.add(answer.question_id)
+        question_index = question_index_by_id.get(answer.question_id)
+
+        if question_index is None:
             raise ClarificationError("Unknown question id")
-        question = updated.open_questions[index]
+
+        question = updated_discovery.open_questions[question_index]
+
         if question.status is not QuestionStatus.UNRESOLVED:
             raise ClarificationError("Question is already answered or deferred")
-        if submission.confirmed_claim:
+
+        if answer.confirmed_claim:
             if question.question not in (_USERS_QUESTION, _PROBLEM_QUESTION, _CAPABILITY_QUESTION):
                 raise ClarificationError("Question cannot directly populate a discovery claim")
-            confirmed_indices.add(index)
+
+            confirmed_question_indexes.add(question_index)
+
         answer = (
             DiscoveryItem(
-                statement=submission.answer,
+                statement=answer.answer,
                 source=InformationSource.CLARIFIED,
                 evidence_ref=f"clarification:{question.id}",
             )
-            if submission.answer is not None
+            if answer.answer is not None
             else None
         )
-        replacements[index] = OpenQuestion(
+
+        # Update the question with its new status and answer, preserving other fields.
+        question_replacements[question_index] = OpenQuestion(
             question=question.question,
             blocking=question.blocking,
             id=question.id,
@@ -331,23 +345,34 @@ def record_developer_answers(
             answer=answer,
         )
 
-    for index, question in replacements.items():
-        updated.open_questions[index] = question
-        if question.answer is None or index not in confirmed_indices:
+    for question_index, question in question_replacements.items():
+        updated_discovery.open_questions[question_index] = question
+
+        if question.answer is None or question_index not in confirmed_question_indexes:
+            # Skip updating discovery claims for deferred or unconfirmed answers.
             continue
-        if question.question == _USERS_QUESTION and not updated.target_users:
-            updated.target_users.append(ProjectTargetUser(name=question.answer))
+
+        if question.question == _USERS_QUESTION and not updated_discovery.target_users:
+            # Add a new target user with the clarified name; description and goals remain empty.
+            updated_discovery.target_users.append(ProjectTargetUser(name=question.answer))
         elif question.question == _PROBLEM_QUESTION:
-            if updated.problem is None:
-                updated.problem = ProjectProblem()
-            if updated.problem.statement is None:
-                updated.problem.statement = question.answer
-        elif question.question == _CAPABILITY_QUESTION and not updated.functional_requirements:
-            updated.functional_requirements.append(
+            # If the problem statement is missing, create a new ProjectProblem and set its statement to the clarified answer.
+            if updated_discovery.problem is None:
+                updated_discovery.problem = ProjectProblem()
+
+            if updated_discovery.problem.statement is None:
+                updated_discovery.problem.statement = question.answer
+        elif (
+            question.question == _CAPABILITY_QUESTION
+            and not updated_discovery.functional_requirements
+        ):
+            # Add a new functional requirement with the clarified statement.
+            updated_discovery.functional_requirements.append(
                 Requirement(
                     statement=question.answer.statement,
                     source=InformationSource.CLARIFIED,
                     evidence_ref=question.answer.evidence_ref,
                 )
             )
-    return updated
+
+    return updated_discovery
