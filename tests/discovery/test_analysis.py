@@ -5,7 +5,7 @@ import json
 import pytest
 
 from forge.ai import FakeProvider, GenerationRequest
-from forge.discovery.analysis import RequirementsAnalysisError, analyze_requirements
+from forge.discovery.analysis import RequirementsAnalysisError, analyze_project_requirements
 from forge.discovery.intake import intake_idea
 from forge.discovery.models import DiscoveryItem, InformationSource, Requirement
 from forge.error.provider_errors import (
@@ -92,7 +92,7 @@ def test_analysis_maps_candidates_and_preserves_existing_claims() -> None:
         )
     )
 
-    result = analyze_requirements(original, provider)
+    result = analyze_project_requirements(original, provider)
 
     assert provider.request.prompt.endswith(idea)
     assert result is not original
@@ -145,7 +145,7 @@ def test_existing_identity_is_not_overwritten() -> None:
         statement="Coach App", source=InformationSource.USER, evidence_ref="original_idea"
     )
 
-    result = analyze_requirements(original, FakeProvider(_response(project_name="AI Name")))
+    result = analyze_project_requirements(original, FakeProvider(_response(project_name="AI Name")))
 
     assert result.identity.name == original.identity.name
     assert result.identity.name.source is InformationSource.USER
@@ -168,7 +168,7 @@ def test_invalid_analysis_is_rejected_without_mutation(response: str) -> None:
     before = original.model_dump()
 
     with pytest.raises(RequirementsAnalysisError) as caught:
-        analyze_requirements(original, FakeProvider(response))
+        analyze_project_requirements(original, FakeProvider(response))
 
     assert "Build a coaching app." not in str(caught.value)
     assert "sensitive-provider-output" not in str(caught.value)
@@ -181,14 +181,16 @@ def test_missing_section_is_named_without_leaking_response() -> None:
     data["unexpected"] = "sensitive-provider-output"
 
     with pytest.raises(RequirementsAnalysisError, match="goals") as caught:
-        analyze_requirements(intake_idea("Build a coaching app."), FakeProvider(json.dumps(data)))
+        analyze_project_requirements(
+            intake_idea("Build a coaching app."), FakeProvider(json.dumps(data))
+        )
 
     assert "sensitive-provider-output" not in str(caught.value)
 
 
 def test_empty_analysis_is_rejected() -> None:
     with pytest.raises(RequirementsAnalysisError, match="no findings or questions"):
-        analyze_requirements(
+        analyze_project_requirements(
             intake_idea("Build a coaching app."), FakeProvider(_response(open_questions=[]))
         )
 
@@ -209,7 +211,7 @@ def test_provider_error_types_are_preserved_without_sensitive_messages(error: Ex
             raise error
 
     with pytest.raises(type(error)) as caught:
-        analyze_requirements(intake_idea("Build a coaching app."), FailingProvider())
+        analyze_project_requirements(intake_idea("Build a coaching app."), FailingProvider())
 
     assert "secret-key" not in str(caught.value)
     assert "private project idea" not in str(caught.value)
@@ -221,7 +223,7 @@ def test_unexpected_provider_error_is_sanitized() -> None:
             raise RuntimeError("private project idea and secret-key")
 
     with pytest.raises(ProviderExecutionError) as caught:
-        analyze_requirements(intake_idea("Build a coaching app."), FailingProvider())
+        analyze_project_requirements(intake_idea("Build a coaching app."), FailingProvider())
 
     assert "private project idea" not in str(caught.value)
     assert "secret-key" not in str(caught.value)

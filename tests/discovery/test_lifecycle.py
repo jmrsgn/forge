@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from forge.ai import FakeProvider
-from forge.discovery.analysis import RequirementsAnalysisError, analyze_requirements
+from forge.discovery.analysis import RequirementsAnalysisError, analyze_project_requirements
 from forge.discovery.clarification import (
     ClarificationAnswer,
     record_developer_answers,
@@ -72,7 +72,7 @@ def test_greenfield_discovery_reloads_with_explicit_approved_handoff(tmp_path: P
     state = create_discovery(tmp_path, initial)
     assert not can_handoff(state.specification, state.current_decision)
 
-    analyzed = analyze_requirements(state.discovery, FakeProvider(_analysis_json()))
+    analyzed = analyze_project_requirements(state.discovery, FakeProvider(_analysis_json()))
     assert analyzed.original_idea == IDEA
     assert all(
         item.source is InformationSource.INFERRED for item in analyzed.functional_requirements
@@ -172,7 +172,7 @@ def test_invalid_ai_analysis_does_not_change_saved_discovery(tmp_path: Path) -> 
     previous_bytes = path.read_bytes()
 
     with pytest.raises(RequirementsAnalysisError, match="malformed"):
-        analyze_requirements(state.discovery, FakeProvider("not JSON"))
+        analyze_project_requirements(state.discovery, FakeProvider("not JSON"))
 
     assert path.read_bytes() == previous_bytes
     assert load_discovery(tmp_path) == state
