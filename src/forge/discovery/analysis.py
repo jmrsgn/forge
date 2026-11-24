@@ -13,7 +13,6 @@ from forge.discovery.models import (
     ProjectDiscovery,
     ProjectProblem,
     ProjectTargetUser,
-    Requirement,
     UseCase,
 )
 from forge.error.analysis_errors import RequirementsAnalysisError
@@ -240,7 +239,7 @@ def analyze_project_requirements(
     updated_project_discovery.out_of_scope.extend(
         _create_inferred_item(statement) for statement in analysis.out_of_scope
     )
-    
+
     # Extend open questions from analysis
     updated_project_discovery.open_questions.extend(
         OpenQuestion(question=question) for question in analysis.open_questions
