@@ -6,10 +6,7 @@ import yaml
 from pydantic import ValidationError
 
 from forge.configuration.models import ProjectConfig
-
-
-class ConfigurationError(ValueError):
-    """The project configuration could not be read or validated."""
+from forge.error.configuration_errors import ConfigurationError
 
 
 def load_project_config(path: str | Path) -> ProjectConfig:

@@ -5,6 +5,7 @@ from enum import Enum
 from pathlib import Path
 
 from forge.configuration.models import CURRENT_SCHEMA_VERSION, ProjectConfig
+from forge.error.initialization_errors import InitializationError
 from forge.workspace import WorkspaceError, create_workspace
 
 
@@ -13,10 +14,6 @@ class InitializationMode(str, Enum):
 
     GREENFIELD = "greenfield"
     BROWNFIELD = "brownfield"
-
-
-class InitializationError(ValueError):
-    """The project cannot be initialized with the supplied inputs."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -15,13 +15,10 @@ from pydantic import ValidationError
 
 from forge.discovery.models import ProjectDiscovery
 from forge.discovery.state import PERSISTENCE_SCHEMA_VERSION, DiscoveryState, new_discovery_state
+from forge.error.persistence_errors import DiscoveryPersistenceError
 from forge.workspace import WorkspaceError, validate_workspace
 
 DISCOVERY_FILE = "discovery.json"
-
-
-class DiscoveryPersistenceError(ValueError):
-    """A discovery state file cannot be safely created, read, or updated."""
 
 
 def _state_path(project_dir: str | Path) -> Path:

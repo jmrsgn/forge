@@ -26,10 +26,7 @@ from forge.discovery.models import (
     Requirement,
     UseCase,
 )
-
-
-class RequirementsAnalysisError(ValueError):
-    """The provider returned unusable requirements analysis."""
+from forge.error.analysis_errors import RequirementsAnalysisError
 
 
 class _TargetUserCandidate(BaseModel):

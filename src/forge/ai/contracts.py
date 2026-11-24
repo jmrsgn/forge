@@ -4,7 +4,27 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from forge.error.provider_errors import (
+    ProviderAuthenticationError,
+    ProviderConfigurationError,
+    ProviderError,
+    ProviderExecutionError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+)
 from forge.utils.text_utils import NonBlankText
+
+__all__ = [
+    "AIProvider",
+    "GenerationRequest",
+    "GenerationResponse",
+    "ProviderAuthenticationError",
+    "ProviderConfigurationError",
+    "ProviderError",
+    "ProviderExecutionError",
+    "ProviderRateLimitError",
+    "ProviderTimeoutError",
+]
 
 
 class GenerationRequest(BaseModel):
@@ -25,27 +45,3 @@ class AIProvider(Protocol):
     def generate(self, request: GenerationRequest) -> GenerationResponse:
         """Generate a text response for one request."""
         ...
-
-
-class ProviderError(Exception):
-    """Base error for provider setup and execution."""
-
-
-class ProviderConfigurationError(ProviderError):
-    """Provider settings or credentials are invalid."""
-
-
-class ProviderAuthenticationError(ProviderError):
-    """The provider rejected authentication."""
-
-
-class ProviderTimeoutError(ProviderError):
-    """The provider request timed out."""
-
-
-class ProviderRateLimitError(ProviderError):
-    """The provider rejected a request due to rate limiting."""
-
-
-class ProviderExecutionError(ProviderError):
-    """The provider request failed or returned unusable output."""

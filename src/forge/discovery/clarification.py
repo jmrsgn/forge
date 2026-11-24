@@ -19,14 +19,11 @@ from forge.discovery.models import (
     QuestionStatus,
     Requirement,
 )
+from forge.error.clarification_errors import ClarificationError
 
 _USERS_QUESTION = "Who are the intended users?"
 _PROBLEM_QUESTION = "What problem should the application solve?"
 _CAPABILITY_QUESTION = "What must the application let its users do?"
-
-
-class ClarificationError(ValueError):
-    """The requested clarification round or answer is invalid."""
 
 
 class ClarificationAnswer(BaseModel):

@@ -20,10 +20,7 @@ from forge.discovery.specification import (
     SpecificationIssue,
     render_specification_markdown,
 )
-
-
-class ReviewError(ValueError):
-    """A review decision cannot be recorded for the supplied revision."""
+from forge.error.review_errors import ReviewError
 
 
 class ReviewDecision(str, Enum):

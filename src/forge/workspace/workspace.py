@@ -6,12 +6,9 @@ import yaml
 from pydantic import ValidationError
 
 from forge.configuration import ConfigurationError, ProjectConfig, load_project_config
+from forge.error.workspace_errors import WorkspaceError
 
 REQUIRED_DIRECTORIES = ("agents", "skills", "rules", "knowledge")
-
-
-class WorkspaceError(ValueError):
-    """A Forge workspace cannot be created or is invalid."""
 
 
 def create_workspace(project_dir: str | Path, config: ProjectConfig) -> Path:
