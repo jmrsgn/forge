@@ -4,18 +4,17 @@ import json
 
 import pytest
 
-from forge.ai import (
-    FakeProvider,
-    GenerationRequest,
+from forge.ai import FakeProvider, GenerationRequest
+from forge.discovery.analysis import RequirementsAnalysisError, analyze_requirements
+from forge.discovery.intake import intake_idea
+from forge.discovery.models import DiscoveryItem, InformationSource, Requirement
+from forge.error.provider_errors import (
     ProviderAuthenticationError,
     ProviderConfigurationError,
     ProviderExecutionError,
     ProviderRateLimitError,
     ProviderTimeoutError,
 )
-from forge.discovery.analysis import RequirementsAnalysisError, analyze_requirements
-from forge.discovery.intake import intake_idea
-from forge.discovery.models import DiscoveryItem, InformationSource, Requirement
 
 
 def _response(**changes: object) -> str:

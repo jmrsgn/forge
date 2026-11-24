@@ -57,7 +57,7 @@ class DiscoveryItem(BaseModel):
             raise ValueError("CLARIFIED information requires a clarification:<id> reference")
         if self.source is InformationSource.INFERRED and self.evidence_ref is not None:
             raise ValueError("INFERRED information cannot have confirming evidence")
-        
+
         return self
 
 
@@ -168,7 +168,7 @@ class OpenQuestion(BaseModel):
             raise ValueError("Deferred questions require an id")
         elif self.answer is not None:
             raise ValueError("Only resolved questions may contain an answer")
-        
+
         return self
 
 
@@ -185,7 +185,7 @@ class ClarificationRoundRecord(BaseModel):
         """Keep a round's selected questions unambiguous."""
         if len(self.question_ids) != len(set(self.question_ids)):
             raise ValueError("Clarification round question ids must be unique")
-        
+
         return self
 
 
@@ -224,11 +224,11 @@ class ProjectDiscovery(BaseModel):
         ids = [question.id for question in self.open_questions if question.id is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("Question ids must be unique")
-        
+
         rounds = [round_record.round_number for round_record in self.clarification_history]
         if rounds != sorted(set(rounds)) or any(
             number > self.clarification_rounds for number in rounds
         ):
             raise ValueError("Clarification history must have unique, ordered round numbers")
-        
+
         return self

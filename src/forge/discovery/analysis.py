@@ -4,17 +4,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from forge.ai.contracts import (
-    AIProvider,
-    GenerationRequest,
-    GenerationResponse,
-    ProviderAuthenticationError,
-    ProviderConfigurationError,
-    ProviderError,
-    ProviderExecutionError,
-    ProviderRateLimitError,
-    ProviderTimeoutError,
-)
+from forge.ai.contracts import AIProvider, GenerationRequest, GenerationResponse
 from forge.discovery.models import (
     DiscoveryItem,
     InformationSource,
@@ -27,6 +17,14 @@ from forge.discovery.models import (
     UseCase,
 )
 from forge.error.analysis_errors import RequirementsAnalysisError
+from forge.error.provider_errors import (
+    ProviderAuthenticationError,
+    ProviderConfigurationError,
+    ProviderError,
+    ProviderExecutionError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+)
 
 
 class _TargetUserCandidate(BaseModel):

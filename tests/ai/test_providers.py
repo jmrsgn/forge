@@ -13,17 +13,19 @@ from forge.ai import (
     FakeProvider,
     GenerationRequest,
     GenerationResponse,
-    ProviderAuthenticationError,
-    ProviderConfigurationError,
-    ProviderExecutionError,
     ProviderName,
-    ProviderRateLimitError,
     ProviderSettings,
-    ProviderTimeoutError,
     providers,
     resolve_provider,
 )
 from forge.configuration import environment
+from forge.error.provider_errors import (
+    ProviderAuthenticationError,
+    ProviderConfigurationError,
+    ProviderExecutionError,
+    ProviderRateLimitError,
+    ProviderTimeoutError,
+)
 
 
 def test_request_and_response_require_nonblank_text() -> None:
