@@ -24,10 +24,12 @@ class FakeProvider:
 
     def __init__(self, response_text: str = "Fake response") -> None:
         """Validate and store the fixed response text."""
+
         self._response = GenerationResponse(text=response_text)
 
-    def generate(self, request: GenerationRequest) -> GenerationResponse:
+    def generate_text_response(self, request: GenerationRequest) -> GenerationResponse:
         """Return the fixed response without a network request."""
+
         return self._response
 
 
@@ -36,15 +38,18 @@ class OpenAIProvider:
 
     def __init__(self, *, model: str, api_key: str, timeout_seconds: float) -> None:
         """Keep runtime settings for later generation requests."""
+
         self._model = model
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
 
-    def generate(self, request: GenerationRequest) -> GenerationResponse:
+    def generate_text_response(self, request: GenerationRequest) -> GenerationResponse:
         """Send a text request and return the provider's validated output."""
+
         body = json.dumps({"model": self._model, "input": request.prompt, "store": False}).encode(
             "utf-8"
         )
+
         http_request = Request(
             _OPENAI_RESPONSES_URL,
             data=body,
@@ -54,6 +59,7 @@ class OpenAIProvider:
             },
             method="POST",
         )
+
         try:
             with urlopen(http_request, timeout=self._timeout_seconds) as response:
                 payload = json.load(response)
@@ -75,6 +81,7 @@ class OpenAIProvider:
         try:
             if payload["status"] != "completed":
                 raise ValueError
+            # Build response text from all output_text items in all message items, in order
             parts = [
                 content["text"]
                 for item in payload["output"]
@@ -82,6 +89,7 @@ class OpenAIProvider:
                 for content in item["content"]
                 if content.get("type") == "output_text"
             ]
+
             return GenerationResponse(text="".join(parts))
         except (AttributeError, KeyError, TypeError, ValueError):
             raise ProviderExecutionError("OpenAI returned no usable text") from None
@@ -89,6 +97,7 @@ class OpenAIProvider:
 
 def resolve_provider(settings: ProviderSettings) -> AIProvider:
     """Select a configured provider without reading project.yaml."""
+
     if settings.provider is ProviderName.FAKE:
         return FakeProvider()
     if (
@@ -99,11 +108,13 @@ def resolve_provider(settings: ProviderSettings) -> AIProvider:
         raise ProviderConfigurationError("Unsupported or incomplete provider configuration")
 
     api_key = os.environ.get("OPENAI_API_KEY")
+
     if api_key is None:
         load_local_environment()
         api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key or not api_key.strip():
         raise ProviderConfigurationError("OPENAI_API_KEY is required for the OpenAI provider")
+
     return OpenAIProvider(
         model=settings.model, api_key=api_key, timeout_seconds=settings.timeout_seconds
     )

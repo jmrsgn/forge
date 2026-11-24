@@ -118,7 +118,7 @@ def analyze_requirements(discovery: ProjectDiscovery, provider: AIProvider) -> P
     """Return a separate discovery with validated, unconfirmed AI candidates."""
     request = GenerationRequest(prompt=_prompt(discovery.original_idea))
     try:
-        response = provider.generate(request)
+        response = provider.generate_text_response(request)
     except ProviderError as exc:
         error_type = type(exc)
         if error_type not in (

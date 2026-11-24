@@ -37,9 +37,9 @@ def _response(**changes: object) -> str:
 
 
 class RecordingProvider(FakeProvider):
-    def generate(self, request: GenerationRequest):
+    def generate_text_response(self, request: GenerationRequest):
         self.request = request
-        return super().generate(request)
+        return super().generate_text_response(request)
 
 
 def test_analysis_maps_candidates_and_preserves_existing_claims() -> None:
@@ -205,7 +205,7 @@ def test_empty_analysis_is_rejected() -> None:
 )
 def test_provider_error_types_are_preserved_without_sensitive_messages(error: Exception) -> None:
     class FailingProvider:
-        def generate(self, request: GenerationRequest):
+        def generate_text_response(self, request: GenerationRequest):
             raise error
 
     with pytest.raises(type(error)) as caught:
@@ -217,7 +217,7 @@ def test_provider_error_types_are_preserved_without_sensitive_messages(error: Ex
 
 def test_unexpected_provider_error_is_sanitized() -> None:
     class FailingProvider:
-        def generate(self, request: GenerationRequest):
+        def generate_text_response(self, request: GenerationRequest):
             raise RuntimeError("private project idea and secret-key")
 
     with pytest.raises(ProviderExecutionError) as caught:

@@ -28,6 +28,6 @@ class GenerationResponse(BaseModel):
 class AIProvider(Protocol):
     """The provider-independent contract for text generation."""
 
-    def generate(self, request: GenerationRequest) -> GenerationResponse:
+    def generate_text_response(self, request: GenerationRequest) -> GenerationResponse:
         """Generate a text response for one request."""
         ...

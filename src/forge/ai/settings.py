@@ -29,5 +29,5 @@ class ProviderSettings(BaseModel):
             raise ValueError("OpenAI provider requires a nonblank model")
         if self.provider is ProviderName.FAKE and self.model is not None:
             raise ValueError("Fake provider does not use a model")
-        
+
         return self
