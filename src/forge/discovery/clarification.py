@@ -8,7 +8,7 @@ from typing import Self
 from pydantic import BaseModel, ConfigDict, StrictBool, model_validator
 
 from forge.discovery.models import (
-    ClarificationRoundRecord,
+    ClarificationRoundHistory,
     DiscoveryItem,
     InformationSource,
     NonBlankText,
@@ -39,10 +39,12 @@ class ClarificationAnswer(BaseModel):
     confirmed_claim: StrictBool = False
 
     @model_validator(mode="after")
-    def confirmation_requires_answer(self) -> Self:
+    def validate_confirmation_requires_answer(self) -> Self:
         """Reject a confirmed claim when the developer deferred the question."""
+
         if self.confirmed_claim and self.answer is None:
             raise ValueError("A confirmed claim requires an answer")
+
         return self
 
 
@@ -55,18 +57,21 @@ class ClarificationRound:
     limit_reached: bool = False
 
 
-def _key(text: str) -> str:
+def _normalize_text(text: str) -> str:
     """Normalize text for comparison without changing the stored wording."""
+
     return " ".join(text.casefold().split())
 
 
-def _question_id(text: str) -> str:
+def _generate_question_id(text: str) -> str:
     """Derive a stable ID from normalized question text."""
-    return f"q-{sha256(_key(text).encode('utf-8')).hexdigest()[:16]}"
+
+    return f"q-{sha256(_normalize_text(text).encode('utf-8')).hexdigest()[:16]}"
 
 
-def _trusted_statements(discovery: ProjectDiscovery) -> set[str]:
+def _collect_confirmed_statements(discovery: ProjectDiscovery) -> set[str]:
     """Find established claims so their inferred duplicates are not reasked."""
+
     items = [
         *discovery.functional_requirements,
         *discovery.quality_requirements,
@@ -75,8 +80,9 @@ def _trusted_statements(discovery: ProjectDiscovery) -> set[str]:
         *discovery.out_of_scope,
         *(user.name for user in discovery.target_users),
     ]
+
     return {
-        _key(item.statement)
+        _normalize_text(item.statement)
         for item in items
         if item.source in (InformationSource.USER, InformationSource.CLARIFIED)
     }
@@ -94,123 +100,181 @@ def select_clarification_round(
 
     Once ``max_rounds`` is reached, return no questions with
     ``limit_reached=True``; this does not mean all questions are resolved.
+
+    For open questions "Which platform?" (unasked, index 0) and "Can clients
+    sign in?" (already assigned the illustrative id "q-existing", index 1),
+    the lookup collections contain::
+
+        question_index_by_text = {
+            "which platform?": 0,
+            "can clients sign in?": 1,
+        }
+        unavailable_question_texts = {"can clients sign in?"}
+        question_text_by_id = {"q-existing": "can clients sign in?"}
     """
+
+    # The number is a simple priority band; insertion order breaks ties.
+    question_candidates: list[tuple[int, str, bool, int | None]] = []
+
+    def add_question_candidate(
+        priority: int, text: str, blocking: bool, index: int | None = None
+    ) -> None:
+        """Stage a question candidate with its priority and existing index."""
+        question_candidates.append((priority, text, blocking, index))
+
     if type(max_questions) is not int or max_questions < 1:
         raise ClarificationError("max_questions must be a positive integer")
+
     if type(max_rounds) is not int or max_rounds < 1:
         raise ClarificationError("max_rounds must be a positive integer")
 
-    updated = ProjectDiscovery.model_validate(discovery.model_dump())
-    if updated.clarification_rounds >= max_rounds:
-        return ClarificationRound(discovery=updated, questions=(), limit_reached=True)
+    updated_discovery = ProjectDiscovery.model_validate(discovery.model_dump())
 
-    # The number is a simple priority band; insertion order breaks ties.
-    candidates: list[tuple[int, str, bool, int | None]] = []
+    if updated_discovery.clarification_rounds >= max_rounds:
+        return ClarificationRound(discovery=updated_discovery, questions=(), limit_reached=True)
 
-    def add(priority: int, text: str, blocking: bool, index: int | None = None) -> None:
-        """Stage a question candidate with its priority and existing index."""
-        candidates.append((priority, text, blocking, index))
+    if not updated_discovery.target_users:
+        add_question_candidate(0, _USERS_QUESTION, True)
+    if updated_discovery.problem is None or updated_discovery.problem.statement is None:
+        add_question_candidate(0, _PROBLEM_QUESTION, True)
+    if not updated_discovery.functional_requirements:
+        add_question_candidate(0, _CAPABILITY_QUESTION, True)
 
-    if not updated.target_users:
-        add(0, _USERS_QUESTION, True)
-    if updated.problem is None or updated.problem.statement is None:
-        add(0, _PROBLEM_QUESTION, True)
-    if not updated.functional_requirements:
-        add(0, _CAPABILITY_QUESTION, True)
+    out_of_scope_list = {_normalize_text(item.statement) for item in updated_discovery.out_of_scope}
 
-    out_of_scope = {_key(item.statement) for item in updated.out_of_scope}
-    for requirement in updated.functional_requirements:
-        if _key(requirement.statement) in out_of_scope:
-            add(0, f"Is this capability in scope: {requirement.statement}?", True)
+    # Check if any inferred items are already confirmed; if so, don't ask about them.
+    for requirement in updated_discovery.functional_requirements:
+        if _normalize_text(requirement.statement) in out_of_scope_list:
+            add_question_candidate(
+                0, f"Is this capability in scope: {requirement.statement}?", True
+            )
 
-    for index, question in enumerate(updated.open_questions):
+    for index, question in enumerate(updated_discovery.open_questions):
         if question.status is QuestionStatus.UNRESOLVED:
-            add(1 if question.blocking else 4, question.question, question.blocking, index)
+            add_question_candidate(
+                1 if question.blocking else 4, question.question, question.blocking, index
+            )
 
-    trusted = _trusted_statements(updated)
-    for user in updated.target_users:
+    confirmed_statements = _collect_confirmed_statements(updated_discovery)
+
+    # Check users that are not yet confirmed.
+    for user in updated_discovery.target_users:
         if (
             user.name.source is InformationSource.INFERRED
-            and _key(user.name.statement) not in trusted
+            and _normalize_text(user.name.statement) not in confirmed_statements
         ):
-            add(2, f"Are these intended users: {user.name.statement}?", True)
-    for constraint in updated.constraints:
+            add_question_candidate(2, f"Are these intended users: {user.name.statement}?", True)
+
+    # Check constraints that are not yet confirmed.
+    for constraint in updated_discovery.constraints:
         if (
             constraint.source is InformationSource.INFERRED
-            and _key(constraint.statement) not in trusted
+            and _normalize_text(constraint.statement) not in confirmed_statements
         ):
-            add(2, f"Is this constraint required: {constraint.statement}?", True)
-    for requirement in updated.functional_requirements:
+            add_question_candidate(2, f"Is this constraint required: {constraint.statement}?", True)
+
+    # Check functional requirements that are not yet confirmed.
+    for requirement in updated_discovery.functional_requirements:
         if (
             requirement.source is InformationSource.INFERRED
-            and _key(requirement.statement) not in trusted
+            and _normalize_text(requirement.statement) not in confirmed_statements
         ):
-            add(2, f"Is this a required capability: {requirement.statement}?", True)
-    for assumption in updated.assumptions:
+            add_question_candidate(
+                2, f"Is this a required capability: {requirement.statement}?", True
+            )
+
+    # Check assumptions that are not yet confirmed.
+    for assumption in updated_discovery.assumptions:
         if (
             assumption.source is InformationSource.INFERRED
-            and _key(assumption.statement) not in trusted
+            and _normalize_text(assumption.statement) not in confirmed_statements
         ):
-            add(3, f"Is this assumption correct: {assumption.statement}?", False)
-    for requirement in updated.quality_requirements:
+            add_question_candidate(3, f"Is this assumption correct: {assumption.statement}?", False)
+
+    # Check quality requirements that are not yet confirmed.
+    for requirement in updated_discovery.quality_requirements:
         if (
             requirement.source is InformationSource.INFERRED
-            and _key(requirement.statement) not in trusted
+            and _normalize_text(requirement.statement) not in confirmed_statements
         ):
-            add(5, f"Is this quality requirement important: {requirement.statement}?", False)
+            add_question_candidate(
+                5, f"Is this quality requirement important: {requirement.statement}?", False
+            )
 
-    by_text = {
-        _key(question.question): index for index, question in enumerate(updated.open_questions)
+    question_index_by_text = {
+        # Example entry: "which platform?": 0
+        _normalize_text(question.question): index
+        for index, question in enumerate(updated_discovery.open_questions)
     }
-    unavailable = {
-        _key(question.question)
-        for question in updated.open_questions
+
+    unavailable_question_texts = {
+        # Example member: "can clients sign in?"
+        _normalize_text(question.question)
+        for question in updated_discovery.open_questions
         if question.id is not None or question.status is not QuestionStatus.UNRESOLVED
     }
-    ids = {
-        question.id: _key(question.question)
-        for question in updated.open_questions
+
+    question_text_by_id = {
+        # Example entry: "q-existing": "can clients sign in?"
+        question.id: _normalize_text(question.question)
+        for question in updated_discovery.open_questions
         if question.id is not None
     }
-    selected: list[OpenQuestion] = []
-    for _, text, blocking, index in sorted(candidates, key=lambda candidate: candidate[0]):
-        key = _key(text)
-        if key in unavailable:
+
+    selected_questions: list[OpenQuestion] = []
+
+    for _, text, blocking, index in sorted(question_candidates, key=lambda candidate: candidate[0]):
+        question_text = _normalize_text(text)
+        if question_text in unavailable_question_texts:
+            # Skip questions that are already asked, answered, or deferred.
             continue
-        question_id = _question_id(text)
-        if question_id in ids and ids[question_id] != key:
+
+        question_id = _generate_question_id(text)
+        if question_id in question_text_by_id and question_text_by_id[question_id] != question_text:
             raise ClarificationError("Question id collision")
+
         if index is None:
-            index = by_text.get(key)
+            index = question_index_by_text.get(question_text)
+
         if index is None:
             question = OpenQuestion(question=text, blocking=blocking, id=question_id)
-            updated.open_questions.append(question)
-            by_text[key] = len(updated.open_questions) - 1
+            updated_discovery.open_questions.append(question)
+            # Map the newly appended question text to its index.
+            question_index_by_text[question_text] = len(updated_discovery.open_questions) - 1
         else:
-            existing = updated.open_questions[index]
+            existing_question = updated_discovery.open_questions[index]
             question = OpenQuestion.model_validate(
                 {
-                    **existing.model_dump(),
+                    **existing_question.model_dump(),
                     "id": question_id,
-                    "blocking": existing.blocking or blocking,
+                    "blocking": existing_question.blocking or blocking,
                 }
             )
-            updated.open_questions[index] = question
-        ids[question_id] = key
-        unavailable.add(key)
-        selected.append(question)
-        if len(selected) == max_questions:
+            # Replace the existing question with the updated one, preserving its index.
+            updated_discovery.open_questions[index] = question
+
+        # Register the question ID for collision detection.
+        question_text_by_id[question_id] = question_text
+
+        # Prevent the question from being selected again.
+        unavailable_question_texts.add(question_text)
+
+        # Include the question in the current clarification round.
+        selected_questions.append(question)
+
+        if len(selected_questions) == max_questions:
             break
 
-    if selected:
-        updated.clarification_rounds += 1
-        updated.clarification_history.append(
-            ClarificationRoundRecord(
-                round_number=updated.clarification_rounds,
-                question_ids=[question.id for question in selected],
+    if selected_questions:
+        updated_discovery.clarification_rounds += 1
+        updated_discovery.clarification_history.append(
+            ClarificationRoundHistory(
+                round_number=updated_discovery.clarification_rounds,
+                question_ids=[question.id for question in selected_questions],
             )
         )
-    return ClarificationRound(discovery=updated, questions=tuple(selected))
+
+    return ClarificationRound(discovery=updated_discovery, questions=tuple(selected_questions))
 
 
 def record_developer_answers(

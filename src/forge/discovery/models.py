@@ -172,7 +172,7 @@ class OpenQuestion(BaseModel):
         return self
 
 
-class ClarificationRoundRecord(BaseModel):
+class ClarificationRoundHistory(BaseModel):
     """Question IDs selected during one numbered clarification round."""
 
     model_config = ConfigDict(frozen=True, extra="forbid", strict=True)
@@ -216,11 +216,12 @@ class ProjectDiscovery(BaseModel):
     out_of_scope: list[DiscoveryItem] = Field(default_factory=list)
     open_questions: list[OpenQuestion] = Field(default_factory=list)
     clarification_rounds: StrictInt = Field(default=0, ge=0)
-    clarification_history: list[ClarificationRoundRecord] = Field(default_factory=list)
+    clarification_history: list[ClarificationRoundHistory] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_unique_question_ids(self) -> Self:
         """Reject ambiguous question IDs and out-of-order round records."""
+
         ids = [question.id for question in self.open_questions if question.id is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("Question ids must be unique")
