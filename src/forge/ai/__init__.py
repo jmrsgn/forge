@@ -2,8 +2,8 @@
 
 from forge.ai.contracts import (
     AIProvider,
-    GenerationRequest,
-    GenerationResponse,
+    TextGenerationRequest,
+    TextGenerationResponse,
 )
 from forge.ai.providers import FakeProvider, resolve_provider
 from forge.ai.settings import ProviderName, ProviderSettings
@@ -11,9 +11,9 @@ from forge.ai.settings import ProviderName, ProviderSettings
 __all__ = [
     "AIProvider",
     "FakeProvider",
-    "GenerationRequest",
-    "GenerationResponse",
     "ProviderName",
     "ProviderSettings",
+    "TextGenerationRequest",
+    "TextGenerationResponse",
     "resolve_provider",
 ]

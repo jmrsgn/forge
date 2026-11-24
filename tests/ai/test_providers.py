@@ -11,10 +11,10 @@ from pydantic import ValidationError
 
 from forge.ai import (
     FakeProvider,
-    GenerationRequest,
-    GenerationResponse,
     ProviderName,
     ProviderSettings,
+    TextGenerationRequest,
+    TextGenerationResponse,
     providers,
     resolve_provider,
 )
@@ -29,15 +29,15 @@ from forge.error.provider_errors import (
 
 
 def test_request_and_response_require_nonblank_text() -> None:
-    request = GenerationRequest(prompt="  Hello  ")
-    response = GenerationResponse(text="  World  ")
+    request = TextGenerationRequest(prompt="  Hello  ")
+    response = TextGenerationResponse(text="  World  ")
 
     assert request.prompt == "  Hello  "
     assert response.text == "  World  "
     with pytest.raises(ValidationError):
-        GenerationRequest(prompt=" \t ")
+        TextGenerationRequest(prompt=" \t ")
     with pytest.raises(ValidationError):
-        GenerationResponse(text=" ")
+        TextGenerationResponse(text=" ")
 
 
 def test_fake_provider_needs_no_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -46,10 +46,13 @@ def test_fake_provider_needs_no_credentials(monkeypatch: pytest.MonkeyPatch) -> 
 
     assert isinstance(provider, FakeProvider)
     assert (
-        provider.generate_text_response(GenerationRequest(prompt="Hello")).text == "Fake response"
+        provider.generate_text_response(TextGenerationRequest(prompt="Hello")).text
+        == "Fake response"
     )
     assert (
-        FakeProvider("Test answer").generate_text_response(GenerationRequest(prompt="Hello")).text
+        FakeProvider("Test answer")
+        .generate_text_response(TextGenerationRequest(prompt="Hello"))
+        .text
         == "Test answer"
     )
 
@@ -120,7 +123,7 @@ def test_openai_request_uses_model_key_and_timeout(monkeypatch: pytest.MonkeyPat
     settings = ProviderSettings(provider="openai", model="example-model", timeout_seconds=5)
     provider = resolve_provider(settings)
 
-    assert provider.generate_text_response(GenerationRequest(prompt="Hi")).text == "Hello!"
+    assert provider.generate_text_response(TextGenerationRequest(prompt="Hi")).text == "Hello!"
     request = captured["request"]
     assert request.full_url == "https://api.openai.com/v1/responses"
     assert request.get_header("Authorization") == "Bearer test-key"
@@ -149,7 +152,7 @@ def test_openai_http_errors_are_sanitized(
     provider = resolve_provider(ProviderSettings(provider="openai", model="example-model"))
 
     with pytest.raises(error_type) as caught:
-        provider.generate_text_response(GenerationRequest(prompt="private prompt"))
+        provider.generate_text_response(TextGenerationRequest(prompt="private prompt"))
 
     assert "secret" not in str(caught.value)
     assert "private prompt" not in str(caught.value)
@@ -165,7 +168,7 @@ def test_openai_timeout_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:
     provider = resolve_provider(ProviderSettings(provider="openai", model="example-model"))
 
     with pytest.raises(ProviderTimeoutError) as caught:
-        provider.generate_text_response(GenerationRequest(prompt="private prompt"))
+        provider.generate_text_response(TextGenerationRequest(prompt="private prompt"))
 
     assert "private prompt" not in str(caught.value)
     assert "secret-key" not in str(caught.value)
@@ -181,7 +184,7 @@ def test_wrapped_network_timeout_is_classified(monkeypatch: pytest.MonkeyPatch) 
     provider = resolve_provider(ProviderSettings(provider="openai", model="example-model"))
 
     with pytest.raises(ProviderTimeoutError, match="timed out"):
-        provider.generate_text_response(GenerationRequest(prompt="private prompt"))
+        provider.generate_text_response(TextGenerationRequest(prompt="private prompt"))
 
 
 def test_openai_rejects_unusable_output(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -194,4 +197,4 @@ def test_openai_rejects_unusable_output(monkeypatch: pytest.MonkeyPatch) -> None
     provider = resolve_provider(ProviderSettings(provider="openai", model="example-model"))
 
     with pytest.raises(ProviderExecutionError, match="no usable text"):
-        provider.generate_text_response(GenerationRequest(prompt="Hi"))
+        provider.generate_text_response(TextGenerationRequest(prompt="Hi"))

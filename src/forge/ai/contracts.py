@@ -8,18 +8,18 @@ from forge.utils.text_utils import NonBlankText
 
 __all__ = [
     "AIProvider",
-    "GenerationRequest",
-    "GenerationResponse",
+    "TextGenerationRequest",
+    "TextGenerationResponse",
 ]
 
 
-class GenerationRequest(BaseModel):
+class TextGenerationRequest(BaseModel):
     """A validated text prompt sent to an AI provider."""
 
     prompt: NonBlankText
 
 
-class GenerationResponse(BaseModel):
+class TextGenerationResponse(BaseModel):
     """Validated text returned by an AI provider."""
 
     text: NonBlankText
@@ -28,6 +28,6 @@ class GenerationResponse(BaseModel):
 class AIProvider(Protocol):
     """The provider-independent contract for text generation."""
 
-    def generate_text_response(self, request: GenerationRequest) -> GenerationResponse:
+    def generate_text_response(self, request: TextGenerationRequest) -> TextGenerationResponse:
         """Generate a text response for one request."""
         ...

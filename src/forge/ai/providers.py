@@ -5,7 +5,7 @@ import os
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from forge.ai.contracts import AIProvider, GenerationRequest, GenerationResponse
+from forge.ai.contracts import AIProvider, TextGenerationRequest, TextGenerationResponse
 from forge.ai.settings import ProviderName, ProviderSettings
 from forge.configuration.environment import load_local_environment
 from forge.error.provider_errors import (
@@ -25,9 +25,9 @@ class FakeProvider:
     def __init__(self, response_text: str = "Fake response") -> None:
         """Validate and store the fixed response text."""
 
-        self._response = GenerationResponse(text=response_text)
+        self._response = TextGenerationResponse(text=response_text)
 
-    def generate_text_response(self, request: GenerationRequest) -> GenerationResponse:
+    def generate_text_response(self, request: TextGenerationRequest) -> TextGenerationResponse:
         """Return the fixed response without a network request."""
 
         return self._response
@@ -43,7 +43,7 @@ class OpenAIProvider:
         self._api_key = api_key
         self._timeout_seconds = timeout_seconds
 
-    def generate_text_response(self, request: GenerationRequest) -> GenerationResponse:
+    def generate_text_response(self, request: TextGenerationRequest) -> TextGenerationResponse:
         """Send a text request and return the provider's validated output."""
 
         body = json.dumps({"model": self._model, "input": request.prompt, "store": False}).encode(
@@ -90,7 +90,7 @@ class OpenAIProvider:
                 if content.get("type") == "output_text"
             ]
 
-            return GenerationResponse(text="".join(parts))
+            return TextGenerationResponse(text="".join(parts))
         except (AttributeError, KeyError, TypeError, ValueError):
             raise ProviderExecutionError("OpenAI returned no usable text") from None
 

@@ -4,7 +4,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from forge.ai.contracts import AIProvider, GenerationRequest, GenerationResponse
+from forge.ai.contracts import AIProvider, TextGenerationRequest, TextGenerationResponse
 from forge.discovery.models import (
     DiscoveryItem,
     InformationSource,
@@ -105,7 +105,7 @@ def _generate_prompt(original_idea: str) -> str:
     )
 
 
-def _parse_response(response: GenerationResponse) -> _AnalysisResponse:
+def _parse_response(response: TextGenerationResponse) -> _AnalysisResponse:
     """Validate provider JSON without exposing its contents in errors."""
 
     try:
@@ -140,14 +140,14 @@ def _create_inferred_item(statement: str) -> DiscoveryItem:
 
 
 def analyze_project_requirements(
-    project_discovery: ProjectDiscovery, ai_provider: AIProvider
+    discovery: ProjectDiscovery, provider: AIProvider
 ) -> ProjectDiscovery:
     """Return a separate discovery with validated, unconfirmed AI candidates."""
 
-    request = GenerationRequest(prompt=_generate_prompt(project_discovery.original_idea))
+    request = TextGenerationRequest(prompt=_generate_prompt(discovery.original_idea))
 
     try:
-        response = ai_provider.generate_text_response(request)
+        response = provider.generate_text_response(request)
     except ProviderError as exc:
         error_type = type(exc)
         if error_type not in (
@@ -162,39 +162,34 @@ def analyze_project_requirements(
     except Exception:  # noqa: BLE001 - injected providers can raise sensitive errors
         raise ProviderExecutionError("AI provider failed during requirements analysis") from None
 
-    if not isinstance(response, GenerationResponse):
+    if not isinstance(response, TextGenerationResponse):
         raise RequirementsAnalysisError("Provider returned an invalid generation response")
 
     analysis = _parse_response(response)
-    updated_project_discovery = project_discovery.model_copy(deep=True)
+    updated_discovery = discovery.model_copy(deep=True)
 
     # Check identity name
-    if updated_project_discovery.identity.name is None and analysis.project_name is not None:
-        updated_project_discovery.identity.name = _create_inferred_item(analysis.project_name)
+    if updated_discovery.identity.name is None and analysis.project_name is not None:
+        updated_discovery.identity.name = _create_inferred_item(analysis.project_name)
 
     # Check identity summary
-    if updated_project_discovery.identity.summary is None and analysis.project_summary is not None:
-        updated_project_discovery.identity.summary = _create_inferred_item(analysis.project_summary)
+    if updated_discovery.identity.summary is None and analysis.project_summary is not None:
+        updated_discovery.identity.summary = _create_inferred_item(analysis.project_summary)
 
     # Check problem statement and goals
     if analysis.problem_statement is not None or analysis.goals:
-        if updated_project_discovery.problem is None:
-            updated_project_discovery.problem = ProjectProblem()
+        if updated_discovery.problem is None:
+            updated_discovery.problem = ProjectProblem()
 
-        if (
-            updated_project_discovery.problem.statement is None
-            and analysis.problem_statement is not None
-        ):
-            updated_project_discovery.problem.statement = _create_inferred_item(
-                analysis.problem_statement
-            )
+        if updated_discovery.problem.statement is None and analysis.problem_statement is not None:
+            updated_discovery.problem.statement = _create_inferred_item(analysis.problem_statement)
 
-        updated_project_discovery.problem.goals.extend(
+        updated_discovery.problem.goals.extend(
             _create_inferred_item(goal) for goal in analysis.goals
         )
 
     # Extend target users from analysis
-    updated_project_discovery.target_users.extend(
+    updated_discovery.target_users.extend(
         ProjectTargetUser(
             name=_create_inferred_item(user.name),
             description=(
@@ -206,7 +201,7 @@ def analyze_project_requirements(
     )
 
     # Extend use cases from analysis
-    updated_project_discovery.use_cases.extend(
+    updated_discovery.use_cases.extend(
         UseCase(
             actor=_create_inferred_item(use_case.actor),
             objective=_create_inferred_item(use_case.objective),
@@ -216,33 +211,33 @@ def analyze_project_requirements(
     )
 
     # Extend functional requirements from analysis
-    updated_project_discovery.functional_requirements.extend(
+    updated_discovery.functional_requirements.extend(
         _create_inferred_item(statement) for statement in analysis.functional_requirements
     )
 
     # Extend quality requirements from analysis
-    updated_project_discovery.quality_requirements.extend(
+    updated_discovery.quality_requirements.extend(
         _create_inferred_item(statement) for statement in analysis.quality_requirements
     )
 
     # Extend constraints from analysis
-    updated_project_discovery.constraints.extend(
+    updated_discovery.constraints.extend(
         _create_inferred_item(statement) for statement in analysis.constraints
     )
 
     # Extend assumptions from analysis
-    updated_project_discovery.assumptions.extend(
+    updated_discovery.assumptions.extend(
         _create_inferred_item(statement) for statement in analysis.assumptions
     )
 
     # Extend out-of-scope items from analysis
-    updated_project_discovery.out_of_scope.extend(
+    updated_discovery.out_of_scope.extend(
         _create_inferred_item(statement) for statement in analysis.out_of_scope
     )
 
     # Extend open questions from analysis
-    updated_project_discovery.open_questions.extend(
+    updated_discovery.open_questions.extend(
         OpenQuestion(question=question) for question in analysis.open_questions
     )
 
-    return updated_project_discovery
+    return updated_discovery
