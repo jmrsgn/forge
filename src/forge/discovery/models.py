@@ -181,7 +181,7 @@ class ClarificationRoundRecord(BaseModel):
     question_ids: list[NonBlankText] = Field(min_length=1)
 
     @model_validator(mode="after")
-    def unique_question_ids(self) -> Self:
+    def validate_unique_question_ids(self) -> Self:
         """Keep a round's selected questions unambiguous."""
         if len(self.question_ids) != len(set(self.question_ids)):
             raise ValueError("Clarification round question ids must be unique")
