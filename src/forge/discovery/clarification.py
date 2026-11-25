@@ -109,7 +109,7 @@ def select_clarification_round(
             "which platform?": 0,
             "can clients sign in?": 1,
         }
-        unavailable_question_texts = {"can clients sign in?"}
+        resolve_questions = {"can clients sign in?"}
         question_text_by_id = {"q-existing": "can clients sign in?"}
     """
 
@@ -207,7 +207,7 @@ def select_clarification_round(
         for index, question in enumerate(updated_discovery.open_questions)
     }
 
-    unavailable_question_texts = {
+    resolved_questions = {
         # Example member: "can clients sign in?"
         _normalize_text(question.question)
         for question in updated_discovery.open_questions
@@ -225,7 +225,7 @@ def select_clarification_round(
 
     for _, text, blocking, index in sorted(question_candidates, key=lambda candidate: candidate[0]):
         question_text = _normalize_text(text)
-        if question_text in unavailable_question_texts:
+        if question_text in resolved_questions:
             # Skip questions that are already asked, answered, or deferred.
             continue
 
@@ -257,7 +257,7 @@ def select_clarification_round(
         question_text_by_id[question_id] = question_text
 
         # Prevent the question from being selected again.
-        unavailable_question_texts.add(question_text)
+        resolved_questions.add(question_text)
 
         # Include the question in the current clarification round.
         selected_questions.append(question)
